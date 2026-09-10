@@ -27,7 +27,7 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/scan", {
+      const response = await fetch("https://securedeploy.onrender.com/scan", {
         method: "POST",
         body: formData,
       });

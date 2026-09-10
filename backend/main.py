@@ -23,7 +23,10 @@ app = FastAPI(title="DevSecOps Risk Platform")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=[
+        "https://securedeploy-1.onrender.com",
+        "http://localhost:5173",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

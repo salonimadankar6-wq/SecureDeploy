@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
@@ -11,6 +11,19 @@ function App() {
   const [selectedFinding, setSelectedFinding] = useState(null);
   const [codeEditor, setCodeEditor] = useState(false);
   const [findingFilter, setFindingFilter] = useState("ALL");
+    const [savedCode, setSavedCode] = useState({});
+
+  useEffect(() => {
+    const storedCode = localStorage.getItem("securedeploy_saved_code");
+
+    if (storedCode) {
+      try {
+        setSavedCode(JSON.parse(storedCode));
+      } catch (error) {
+        console.error("Saved code load failed:", error);
+      }
+    }
+  }, []);
 
   // -----------------------------------------
   // ZIP SCAN
@@ -126,7 +139,27 @@ function App() {
       behavior: "smooth",
     });
   };
+  const saveCurrentCode = () => {
+    if (!selectedFinding) return;
 
+    const key =
+      selectedFinding.display_file ||
+      selectedFinding.file?.split(/[\\/]/).pop();
+
+    const updatedCode = {
+      ...savedCode,
+      [key]: selectedFinding.code || "",
+    };
+
+    setSavedCode(updatedCode);
+
+    localStorage.setItem(
+      "securedeploy_saved_code",
+      JSON.stringify(updatedCode)
+    );
+
+    alert("✅ Fix saved successfully!");
+  };
   // -----------------------------------------
   // COUNTS
   // -----------------------------------------
@@ -1281,18 +1314,24 @@ const visibleFindings =
           {selectedFinding.line || "Not specified"}
         </span>
 
-        <button
-          className="rescan-button"
-          onClick={() => {
-            setCodeEditor(false);
-            alert(
-              "Code updated in the editor. Re-scan will be added next."
-            );
-          }}
-        >
-          🔄 Save & Re-scan
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+  <button
+    className="save-fix-button"
+    onClick={saveCurrentCode}
+  >
+    💾 Save Fix
+  </button>
 
+  <button
+    className="rescan-button"
+    onClick={() => {
+      setCodeEditor(false);
+      alert("🔄 Re-scan will be connected next.");
+    }}
+  >
+    🔄 Re-scan
+  </button>
+</div>
       </div>
 
     </div>

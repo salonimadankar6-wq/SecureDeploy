@@ -1113,3 +1113,219 @@ footer {
     gap: 8px;
   }
 }
+/* =================================
+   SECUREDEPLOY — PROFESSIONAL POLISH
+================================= */
+
+.navbar {
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.brand-icon {
+  box-shadow: 0 0 22px rgba(124, 124, 255, 0.12);
+  transition: 0.25s ease;
+}
+
+.brand:hover .brand-icon {
+  transform: translateY(-2px);
+  box-shadow: 0 0 28px rgba(124, 124, 255, 0.25);
+}
+
+.nav-links a {
+  position: relative;
+  padding: 8px 2px;
+}
+
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 1px;
+  width: 0;
+  height: 2px;
+  border-radius: 10px;
+  background: #7c7cff;
+  transition: width 0.25s ease;
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.hero-badge {
+  box-shadow: 0 0 25px rgba(124, 124, 255, 0.08);
+}
+
+.hero h1 {
+  text-shadow: 0 0 45px rgba(124, 124, 255, 0.08);
+}
+
+.scanner-card,
+.panel,
+.risk-card,
+.release-card {
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.scanner-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanner-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(124, 124, 255, 0.6),
+    transparent
+  );
+}
+
+.drop-zone {
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.drop-zone:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
+}
+
+.scan-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 70%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.16),
+    transparent
+  );
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+}
+
+.scan-button:hover:not(:disabled)::after {
+  left: 140%;
+}
+
+.step-card,
+.feature-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.step-card:hover,
+.feature-card:hover {
+  box-shadow:
+    0 15px 35px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.severity-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.severity-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(124, 124, 255, 0.08),
+    transparent 65%
+  );
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.severity-card:hover::before {
+  opacity: 1;
+}
+
+.finding-card {
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.finding-card::after {
+  content: "Click to view fix →";
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  color: #687593;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: 0.2s ease;
+}
+
+.finding-card:hover::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.finding-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 124, 255, 0.35);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+}
+
+.count-badge,
+.ai-badge {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Smooth page appearance */
+.hero,
+.scanner-card,
+.how-it-works,
+.features,
+.results-section {
+  animation: fadeUp 0.55s ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Better keyboard accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #7c7cff;
+  outline-offset: 3px;
+}

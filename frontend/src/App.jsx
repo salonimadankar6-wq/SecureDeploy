@@ -9,7 +9,9 @@ function App() {
   const [scanMode, setScanMode] = useState("zip");
   const [currentSlide, setCurrentSlide] = useState(1);
   const [selectedFinding, setSelectedFinding] = useState(null);
+  const [codeEditor, setCodeEditor] = useState(false);
   const [findingFilter, setFindingFilter] = useState("ALL");
+  const [showCodeEditor, setShowCodeEditor] = useState(false);
 
   // -----------------------------------------
   // ZIP SCAN
@@ -1200,6 +1202,14 @@ const visibleFindings =
             : ""}
         </p>
       </div>
+      <button
+  className="fix-code-button"
+  onClick={() => {
+    setShowCodeEditor(true);
+  }}
+>
+  🛠️ Fix Code
+</button>
 
       <div className="fix-action">
         <strong>🛠 What to Fix</strong>
@@ -1211,7 +1221,90 @@ const visibleFindings =
             : "Review this security finding and apply the recommended remediation before deployment."}
         </p>
       </div>
+            <button
+        className="fix-code-button"
+        onClick={() => setCodeEditor(true)}
+      >
+        💻 Fix Code
+      </button>
     </div>
+  </div>
+)}
+{/* CODE EDITOR */}
+
+{codeEditor && selectedFinding && (
+  <div className="code-editor-overlay">
+
+    <div className="code-editor-modal">
+
+      <div className="code-editor-header">
+
+        <div>
+          <p className="eyebrow">SECURE CODE EDITOR</p>
+
+          <h3>
+            💻 Fix Vulnerability
+          </h3>
+
+          <p className="editor-file">
+            📄 {selectedFinding.display_file ||
+              selectedFinding.file?.split(/[\\/]/).pop()}
+            {selectedFinding.line
+              ? ` → Line ${selectedFinding.line}`
+              : ""}
+          </p>
+        </div>
+
+        <button
+          className="close-fix"
+          onClick={() => setCodeEditor(false)}
+        >
+          ✕
+        </button>
+
+      </div>
+
+
+      <div className="code-editor-body">
+
+        <textarea
+          className="code-textarea"
+          value={selectedFinding.code || ""}
+          onChange={(event) =>
+            setSelectedFinding({
+              ...selectedFinding,
+              code: event.target.value,
+            })
+          }
+          spellCheck="false"
+        />
+
+      </div>
+
+
+      <div className="code-editor-footer">
+
+        <span>
+          ⚠️ Vulnerable line:{" "}
+          {selectedFinding.line || "Not specified"}
+        </span>
+
+        <button
+          className="rescan-button"
+          onClick={() => {
+            setCodeEditor(false);
+            alert(
+              "Code updated in the editor. Re-scan will be added next."
+            );
+          }}
+        >
+          🔄 Save & Re-scan
+        </button>
+
+      </div>
+
+    </div>
+
   </div>
 )}
               {/* AI RECOMMENDATIONS */}
@@ -1371,7 +1464,66 @@ const visibleFindings =
             </div>
 
           </section>
+{showCodeEditor && selectedFinding && (
+  <div className="code-editor-overlay">
+    <div className="code-editor-modal">
+      <div className="code-editor-header">
+        <div>
+          <p className="eyebrow">SECURE CODE EDITOR</p>
+          <h3>🛠️ Fix Security Issue</h3>
+          <span>
+            {selectedFinding.file?.split(/[\\/]/).pop()}
+            {selectedFinding.line
+              ? ` → Line ${selectedFinding.line}`
+              : ""}
+          </span>
+        </div>
 
+        <button
+          className="close-code-editor"
+          onClick={() => setShowCodeEditor(false)}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="code-editor-body">
+        <div className="editor-toolbar">
+          <span>📄 Source Code</span>
+          <span className="editor-warning">
+            ⚠️ Vulnerable line detected
+          </span>
+        </div>
+
+        <textarea
+  className="code-textarea"
+  value={selectedFinding.code || ""}
+  onChange={(e) => {
+    setSelectedFinding({
+      ...selectedFinding,
+      code: e.target.value,
+    });
+  }}
+  placeholder="Scanned source code will appear here..."
+  spellCheck="false"
+/>
+
+        <div className="editor-actions">
+          <button
+            className="cancel-editor"
+            onClick={() => setShowCodeEditor(false)}
+          >
+            Cancel
+          </button>
+
+          <button className="save-rescan-button">
+            🔄 Save & Re-scan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         </main>
 
       )}

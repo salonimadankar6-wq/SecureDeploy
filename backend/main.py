@@ -12,6 +12,60 @@ from urllib.error import HTTPError, URLError
 from scanner import scan_directory
 from risk_engine import calculate_risk
 from recommendation_engine import generate_recommendations
+# ---------------------------------------------------------
+# ATTACH SOURCE CODE TO FINDINGS
+# ---------------------------------------------------------
+
+def attach_source_code(findings, temp_dir):
+
+    for finding in findings:
+
+        file_path = finding.get("file")
+
+        if not file_path:
+            continue
+
+        try:
+
+            if os.path.isabs(file_path):
+
+                relative_path = os.path.relpath(
+                    file_path,
+                    temp_dir
+                )
+
+            else:
+
+                relative_path = file_path
+
+            if relative_path.startswith(".."):
+                continue
+
+            full_path = os.path.join(
+                temp_dir,
+                relative_path
+            )
+
+            if not os.path.isfile(full_path):
+                continue
+
+            with open(
+                full_path,
+                "r",
+                encoding="utf-8",
+                errors="replace"
+            ) as code_file:
+
+                finding["code"] = code_file.read()
+
+            finding["display_file"] = os.path.basename(
+                full_path
+            )
+
+        except Exception:
+            continue
+
+    return findings
 
 
 app = FastAPI(title="DevSecOps Risk Platform")
@@ -68,6 +122,7 @@ async def scan_project(file: UploadFile = File(...)):
                 zip_ref.extractall(temp_dir)
 
             findings = scan_directory(temp_dir)
+            findings = attach_source_code(findings, temp_dir)
 
             risk = calculate_risk(findings)
 

@@ -1249,9 +1249,20 @@ const visibleFindings =
                         (item, index) => (
 
                           <div
-                            className="recommendation-card"
-                            key={index}
-                          >
+  className="recommendation-card"
+  key={index}
+  onClick={() => {
+    if (findings[index]) {
+      setSelectedFinding(findings[index]);
+      document
+        .querySelector(".findings-list")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }
+  }}
+>
 
                             <div className="recommendation-heading">
 

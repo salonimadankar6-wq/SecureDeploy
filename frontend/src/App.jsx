@@ -8,6 +8,7 @@ function App() {
   const [result, setResult] = useState(null);
   const [scanMode, setScanMode] = useState("zip");
   const [currentSlide, setCurrentSlide] = useState(1);
+  const [selectedFinding, setSelectedFinding] = useState(null);
 
   // -----------------------------------------
   // ZIP SCAN
@@ -990,9 +991,10 @@ function App() {
                     {findings.map((finding, index) => (
 
                       <div
-                        className="finding-card"
-                        key={index}
-                      >
+  className="finding-card"
+  key={index}
+  onClick={() => setSelectedFinding(finding)}
+>
 
                         <div className="finding-top">
 
@@ -1084,7 +1086,53 @@ function App() {
 
               </div>
 
+{selectedFinding && (
+  <div className="fix-details">
+    <div className="fix-details-header">
+      <div>
+        <p className="eyebrow">REMEDIATION DETAILS</p>
+        <h3>🔧 Where to Fix</h3>
+      </div>
 
+      <button
+        className="close-fix"
+        onClick={() => setSelectedFinding(null)}
+      >
+        ✕
+      </button>
+    </div>
+
+    <div className="fix-content">
+      <h4>
+        {selectedFinding.type}
+        <span className="severity-badge critical">
+          {selectedFinding.severity}
+        </span>
+      </h4>
+
+      <div className="fix-location">
+        <strong>📍 Fix Location</strong>
+        <p>
+          {selectedFinding.file}
+          {selectedFinding.line
+            ? ` → Line ${selectedFinding.line}`
+            : ""}
+        </p>
+      </div>
+
+      <div className="fix-action">
+        <strong>🛠 What to Fix</strong>
+        <p>
+          {selectedFinding.type === "API Key"
+            ? "Remove the exposed API key from the source code, rotate the key, and store credentials securely using environment variables or a secret manager."
+            : selectedFinding.type === "Password"
+            ? "Remove the hard-coded password from the source code and use environment variables or a secure secret manager."
+            : "Review this security finding and apply the recommended remediation before deployment."}
+        </p>
+      </div>
+    </div>
+  </div>
+)}
               {/* AI RECOMMENDATIONS */}
 
               {result.recommendations &&

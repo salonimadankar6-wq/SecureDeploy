@@ -9,6 +9,7 @@ function App() {
   const [scanMode, setScanMode] = useState("zip");
   const [currentSlide, setCurrentSlide] = useState(1);
   const [selectedFinding, setSelectedFinding] = useState(null);
+  const [findingFilter, setFindingFilter] = useState("ALL");
 
   // -----------------------------------------
   // ZIP SCAN
@@ -146,7 +147,12 @@ function App() {
   const lowCount = findings.filter(
     (item) => item.severity === "LOW"
   ).length;
-
+const visibleFindings =
+  findingFilter === "ALL"
+    ? findings
+    : findings.filter(
+        (item) => item.severity === findingFilter
+      );
   return (
     <div className="app">
 
@@ -860,7 +866,18 @@ function App() {
 
             <div className="severity-grid">
 
-              <div className="severity-card">
+              <div
+  className={`severity-card ${
+    findingFilter === "ALL" ? "active-filter" : ""
+  }`}
+  onClick={() => {
+    setFindingFilter("ALL");
+    setSelectedFinding(null);
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <span>
                   Total Issues
@@ -877,7 +894,18 @@ function App() {
               </div>
 
 
-              <div className="severity-card critical-card">
+              <div
+  className={`severity-card critical-card ${
+    findingFilter === "CRITICAL" ? "active-filter" : ""
+  }`}
+  onClick={() => {
+    setFindingFilter("CRITICAL");
+    setSelectedFinding(null);
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <span>
                   Critical
@@ -894,7 +922,18 @@ function App() {
               </div>
 
 
-              <div className="severity-card high-card">
+              <div
+  className={`severity-card high-card ${
+    findingFilter === "HIGH" ? "active-filter" : ""
+  }`}
+  onClick={() => {
+    setFindingFilter("HIGH");
+    setSelectedFinding(null);
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <span>
                   High
@@ -911,7 +950,18 @@ function App() {
               </div>
 
 
-              <div className="severity-card medium-card">
+              <div
+  className={`severity-card medium-card ${
+    findingFilter === "MEDIUM" ? "active-filter" : ""
+  }`}
+  onClick={() => {
+    setFindingFilter("MEDIUM");
+    setSelectedFinding(null);
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <span>
                   Medium
@@ -928,7 +978,18 @@ function App() {
               </div>
 
 
-              <div className="severity-card low-card">
+              <div
+  className={`severity-card low-card ${
+    findingFilter === "LOW" ? "active-filter" : ""
+  }`}
+  onClick={() => {
+    setFindingFilter("LOW");
+    setSelectedFinding(null);
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <span>
                   Low
@@ -973,22 +1034,20 @@ function App() {
 
                   <span className="count-badge">
 
-                    {findings.length}{" "}
-
-                    {findings.length === 1
-                      ? "Finding"
-                      : "Findings"}
+                    {visibleFindings.length}{" "}
+{visibleFindings.length === 1
+  ? "Finding"
+  : "Findings"}
 
                   </span>
 
                 </div>
 
 
-                {findings.length > 0 ? (
-
+                {visibleFindings.length > 0 ? (
                   <div className="findings-list">
 
-                    {findings.map((finding, index) => (
+                    {visibleFindings.map((finding, index) => (
 
                       <div
   className="finding-card"

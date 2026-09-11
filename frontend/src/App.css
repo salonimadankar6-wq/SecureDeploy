@@ -1329,3 +1329,15 @@ input:focus-visible {
   outline: 2px solid #7c7cff;
   outline-offset: 3px;
 }
+/* Clickable severity filters */
+.severity-card {
+  cursor: pointer;
+}
+
+.severity-card.active-filter {
+  transform: translateY(-3px);
+  border-color: #7c7cff;
+  box-shadow:
+    0 0 0 1px rgba(124, 124, 255, 0.25),
+    0 12px 30px rgba(0, 0, 0, 0.2);
+}

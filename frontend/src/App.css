@@ -1341,3 +1341,15 @@ input:focus-visible {
     0 0 0 1px rgba(124, 124, 255, 0.25),
     0 12px 30px rgba(0, 0, 0, 0.2);
 }
+/* Clickable risk and release cards */
+.risk-card,
+.release-card {
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.risk-card:hover,
+.release-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}

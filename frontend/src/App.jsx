@@ -796,6 +796,13 @@ const visibleFindings =
                     ? "high"
                     : "safe"
                 }`}
+                onClick={() => {
+  setFindingFilter("ALL");
+  setSelectedFinding(null);
+  document
+    .querySelector(".findings-list")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}}
               >
 
                 <div className="risk-ring">
@@ -830,7 +837,22 @@ const visibleFindings =
               </div>
 
 
-              <div className="release-card">
+              <div
+  className="release-card"
+  onClick={() => {
+    if (result.release_status === "BLOCKED") {
+      setFindingFilter("CRITICAL");
+      setSelectedFinding(null);
+    } else {
+      setFindingFilter("ALL");
+      setSelectedFinding(null);
+    }
+
+    document
+      .querySelector(".findings-list")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }}
+>
 
                 <div className="release-icon">
 

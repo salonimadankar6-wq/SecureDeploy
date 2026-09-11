@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import JSZip from "jszip";
 import "./App.css";
 
 function App() {
   const [file, setFile] = useState(null);
+  const [updatedZipFile, setUpdatedZipFile] = useState(null);
   const [githubUrl, setGithubUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
@@ -43,7 +45,7 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("https://securedeploy.onrender.com/scan", {
+      const response = await fetch("https://securedeploy-api.onrender.com/scan", {
         method: "POST",
         body: formData,
       });
@@ -92,7 +94,7 @@ function App() {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/scan-github?repo_url=${encodeURIComponent(
+        `https://securedeploy-api.onrender.com/scan-github?repo_url=${encodeURIComponent(
           githubUrl.trim()
         )}`,
         {
@@ -129,6 +131,7 @@ function App() {
 
   const handleNewScan = () => {
     setFile(null);
+    setUpdatedZipFile(null);
     setGithubUrl("");
     setResult(null);
     setScanning(false);
@@ -139,27 +142,216 @@ function App() {
       behavior: "smooth",
     });
   };
-  const saveCurrentCode = () => {
-    if (!selectedFinding) return;
+  // -----------------------------------------
+  // SAVE PASSED SCAN TO DESKTOP
+  // -----------------------------------------
 
-    const key =
-      selectedFinding.display_file ||
-      selectedFinding.file?.split(/[\\/]/).pop();
+  const savePassedScanToDesktop = async () => {
+    if (!result) {
+      alert("⚠️ Please scan the project first.");
+      return;
+    }
 
-    const updatedCode = {
-      ...savedCode,
-      [key]: selectedFinding.code || "",
-    };
+    const passed =
+      result.release_status === "APPROVED" ||
+      result.release_status === "PASS" ||
+      result.risk_level === "SAFE" ||
+      Number(result.total_issues || 0) === 0 ||
+      Number(result.findings?.length || 0) === 0;
 
-    setSavedCode(updatedCode);
+    if (!passed) {
+      alert("⚠️ Scan is not passed yet. Fix all security issues and re-scan first.");
+      return;
+    }
 
-    localStorage.setItem(
-      "securedeploy_saved_code",
-      JSON.stringify(updatedCode)
-    );
+    const projectZip = updatedZipFile || file;
+    if (!projectZip) {
+      alert("⚠️ Project ZIP is not available. Please upload the ZIP again.");
+      return;
+    }
 
-    alert("✅ Fix saved successfully!");
+    const fileName = "SecureDeploy_Passed_Project.zip";
+
+    try {
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          startIn: "desktop",
+          types: [
+            {
+              description: "ZIP Project",
+              accept: { "application/zip": [".zip"] },
+            },
+          ],
+        });
+
+        const writable = await handle.createWritable();
+        await writable.write(await projectZip.arrayBuffer());
+        await writable.close();
+        alert("✅ Scanned project saved successfully to Desktop!");
+      } else {
+        const blobUrl = URL.createObjectURL(projectZip);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(blobUrl);
+        alert("✅ Scanned project downloaded. Please check your browser's Downloads folder.");
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.error("Desktop save failed:", error);
+      alert("❌ Could not save the scanned project.");
+    }
   };
+
+  const getFindingKey = (finding = selectedFinding) => {
+    if (!finding) return null;
+    return (
+      finding.relative_file ||
+      finding.display_file ||
+      finding.file?.split(/[\\/]/).pop()
+    );
+  };
+
+  const syncFindingsForFile = (finding, code) => {
+    const key = getFindingKey(finding);
+    if (!key) return;
+
+    setResult((previous) => {
+      if (!previous?.findings) return previous;
+      return {
+        ...previous,
+        findings: previous.findings.map((item) =>
+          getFindingKey(item) === key ? { ...item, code } : item
+        ),
+      };
+    });
+  };
+
+  const saveCurrentCode = async () => {
+    if (!selectedFinding) return false;
+    const key = getFindingKey();
+    const code = selectedFinding.code || "";
+    if (!key) {
+      alert("⚠️ File name not found.");
+      return false;
+    }
+    const updatedCode = { ...savedCode, [key]: code };
+    setSavedCode(updatedCode);
+    localStorage.setItem("securedeploy_saved_code", JSON.stringify(updatedCode));
+    return true;
+  };
+
+  const updateZipWithFix = async (codeToSave = null, finding = selectedFinding) => {
+    if (!finding) {
+      setFixMessage("No finding selected.");
+      return null;
+    }
+
+    const sourceZip = updatedZipFile || file;
+    if (!sourceZip) {
+      setFixMessage("Original ZIP file not found.");
+      return null;
+    }
+
+    try {
+      const zip = await JSZip.loadAsync(sourceZip);
+      const fileName = finding.display_file || finding.file?.split(/[\\/]/).pop();
+      if (!fileName) {
+        setFixMessage("File name not found.");
+        return null;
+      }
+
+      const normalizedFileName = fileName.replace(/\\/g, "/").replace(/^\/+/, "");
+      const relativePath = finding.relative_file
+        ?.replace(/\\/g, "/")
+        .replace(/^\/+/, "");
+
+      let targetPath = null;
+      if (relativePath && zip.file(relativePath)) targetPath = relativePath;
+
+      if (!targetPath) {
+        for (const path of Object.keys(zip.files)) {
+          const normalizedPath = path.replace(/\\/g, "/");
+          if (
+            normalizedPath === normalizedFileName ||
+            normalizedPath.endsWith("/" + normalizedFileName)
+          ) {
+            targetPath = path;
+            break;
+          }
+        }
+      }
+
+      if (!targetPath) {
+        setFixMessage(`${fileName} not found inside ZIP.`);
+        return null;
+      }
+
+      const updatedCode = codeToSave !== null ? codeToSave : (finding.code || "");
+      zip.file(targetPath, updatedCode);
+
+      const updatedZip = await zip.generateAsync({ type: "blob" });
+      const updatedFile = new File(
+        [updatedZip],
+        sourceZip.name || "SecureDeploy_Fixed_Project.zip",
+        { type: "application/zip" }
+      );
+
+      setFile(updatedFile);
+      setUpdatedZipFile(updatedFile);
+      return updatedFile;
+    } catch (error) {
+      console.error("ZIP update failed:", error);
+      setFixMessage("Could not update the ZIP file.");
+      return null;
+    }
+  };
+
+  // Always read the latest version of the selected file from the current ZIP.
+  // This prevents fixing one finding from accidentally using stale editor content
+  // and overwriting other findings in the same project.
+  const readLatestFindingCode = async (finding) => {
+    const sourceZip = updatedZipFile || file;
+    if (!sourceZip || !finding) return null;
+
+    try {
+      const zip = await JSZip.loadAsync(sourceZip);
+      const relativePath = finding.relative_file
+        ?.replace(/\\/g, "/")
+        .replace(/^\/+/, "");
+      const fileName = (
+        finding.display_file ||
+        finding.file?.split(/[\\/]/).pop() ||
+        ""
+      ).replace(/\\/g, "/").replace(/^\/+/, "");
+
+      let targetPath = relativePath && zip.file(relativePath) ? relativePath : null;
+
+      if (!targetPath) {
+        for (const path of Object.keys(zip.files)) {
+          const normalized = path.replace(/\\/g, "/");
+          if (
+            normalized === fileName ||
+            normalized.endsWith("/" + fileName)
+          ) {
+            targetPath = path;
+            break;
+          }
+        }
+      }
+
+      if (!targetPath) return null;
+      return await zip.file(targetPath).async("text");
+    } catch (error) {
+      console.error("Could not read latest finding file:", error);
+      return null;
+    }
+  };
+
   // -----------------------------------------
   // COUNTS
   // -----------------------------------------
@@ -423,9 +615,13 @@ const visibleFindings =
                     <input
                       type="file"
                       accept=".zip"
-                      onChange={(e) =>
-                        setFile(e.target.files[0])
-                      }
+                      onChange={(e) => {
+                        const nextFile = e.target.files[0] || null;
+                        setFile(nextFile);
+                        setUpdatedZipFile(null);
+                        setResult(null);
+                        setSelectedFinding(null);
+                      }}
                       hidden
                     />
 
@@ -1064,6 +1260,55 @@ const visibleFindings =
             </div>
 
 
+            {/* PASSED SCAN DOWNLOAD */}
+            {(result.release_status === "APPROVED" ||
+              result.release_status === "PASS" ||
+              result.risk_level === "SAFE" ||
+              Number(result.total_issues || 0) === 0 ||
+              Number(result.findings?.length || 0) === 0) &&
+              file && (
+                <div
+                  style={{
+                    margin: "24px 0",
+                    padding: "20px",
+                    borderRadius: "16px",
+                    border: "1px solid rgba(34,197,94,0.35)",
+                    background: "rgba(34,197,94,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <strong style={{ display: "block", fontSize: "18px" }}>
+                      ✅ Security Scan Passed
+                    </strong>
+                    <span style={{ opacity: 0.8 }}>
+                      Your latest scanned project ZIP is ready to save.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={savePassedScanToDesktop}
+                    style={{
+                      padding: "13px 20px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      background: "#22c55e",
+                      color: "white",
+                      fontWeight: "700",
+                      fontSize: "15px",
+                    }}
+                  >
+                    💾 Save Scanned File to Desktop
+                  </button>
+                </div>
+              )}
+
             {/* FINDINGS + RECOMMENDATIONS */}
 
             <div className="dashboard-grid">
@@ -1220,7 +1465,7 @@ const visibleFindings =
     <div className="fix-content">
       <h4>
         {selectedFinding.type}
-        <span className="severity-badge critical">
+        <span className={`severity-badge ${(selectedFinding.severity || "LOW").toLowerCase()}`}>
           {selectedFinding.severity}
         </span>
       </h4>
@@ -1236,7 +1481,14 @@ const visibleFindings =
       </div>
       <button
         className="fix-code-button"
-        onClick={() => setCodeEditor(true)}
+        onClick={() => {
+          const key = getFindingKey(selectedFinding);
+          setSelectedFinding({
+            ...selectedFinding,
+            code: savedCode[key] ?? selectedFinding.code ?? "",
+          });
+          setCodeEditor(true);
+        }}
       >
         🛠️ Fix Code
       </button>
@@ -1259,83 +1511,280 @@ const visibleFindings =
 
 {codeEditor && selectedFinding && (
   <div className="code-editor-overlay">
-
     <div className="code-editor-modal">
-
       <div className="code-editor-header">
-
         <div>
           <p className="eyebrow">SECURE CODE EDITOR</p>
-
-          <h3>
-            💻 Fix Vulnerability
-          </h3>
-
+          <h3>💻 Fix Vulnerability</h3>
           <p className="editor-file">
-            📄 {selectedFinding.display_file ||
-              selectedFinding.file?.split(/[\\/]/).pop()}
-            {selectedFinding.line
-              ? ` → Line ${selectedFinding.line}`
-              : ""}
+            📄 {selectedFinding.display_file || selectedFinding.file?.split(/[\\/]/).pop()}
+            {selectedFinding.line ? ` → Line ${selectedFinding.line}` : ""}
           </p>
         </div>
-
-        <button
-          className="close-fix"
-          onClick={() => setCodeEditor(false)}
-        >
-          ✕
-        </button>
-
+        <button className="close-fix" onClick={() => setCodeEditor(false)}>✕</button>
       </div>
 
-
       <div className="code-editor-body">
-
         <textarea
           className="code-textarea"
-          value={selectedFinding.code || ""}
+          value={selectedFinding.code ?? savedCode[getFindingKey(selectedFinding)] ?? ""}
           onChange={(event) =>
-            setSelectedFinding({
-              ...selectedFinding,
-              code: event.target.value,
-            })
+            setSelectedFinding({ ...selectedFinding, code: event.target.value })
           }
           spellCheck="false"
         />
-
       </div>
-
 
       <div className="code-editor-footer">
+        <span>⚠️ Vulnerable line: {selectedFinding.line || "Not specified"}</span>
 
-        <span>
-          ⚠️ Vulnerable line:{" "}
-          {selectedFinding.line || "Not specified"}
-        </span>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            className="auto-fix-button"
+            onClick={async () => {
+              if (!selectedFinding) return;
 
-        <div style={{ display: "flex", gap: "10px" }}>
-  <button
-    className="save-fix-button"
-    onClick={saveCurrentCode}
-  >
-    💾 Save Fix
-  </button>
+              const latestCode = await readLatestFindingCode(selectedFinding);
+              const originalCode = latestCode ?? selectedFinding.code ?? "";
+              const fileName = String(
+                selectedFinding.display_file ||
+                selectedFinding.relative_file ||
+                selectedFinding.file ||
+                ""
+              );
+              const lowerFileName = fileName.toLowerCase();
+              const issueType = String(selectedFinding.type || "")
+                .trim()
+                .toLowerCase();
+              const lineNumber = Math.max(1, Number(selectedFinding.line || 1));
+              const isPython = /\.py$/i.test(lowerFileName);
+              const isEnvFile = /(?:^|[\\/])(?:\.env|[^\\/]*\.env)$/i.test(lowerFileName);
 
-  <button
-    className="rescan-button"
-    onClick={() => {
-      setCodeEditor(false);
-      alert("🔄 Re-scan will be connected next.");
-    }}
-  >
-    🔄 Re-scan
-  </button>
-</div>
+              const addPythonOsImport = (code) => {
+                if (
+                  isPython &&
+                  !/^\s*import\s+os\b/m.test(code) &&
+                  !/^\s*from\s+os\b/m.test(code)
+                ) {
+                  return `import os\n${code}`;
+                }
+                return code;
+              };
+
+              const removeVulnerableLine = (code, number) => {
+                const lines = code.split(/\r?\n/);
+                const index = number - 1;
+                if (index < 0 || index >= lines.length) return code;
+                lines.splice(index, 1);
+                return lines.join("\n");
+              };
+
+              const commentLine = (code, number) => {
+                const lines = code.split(/\r?\n/);
+                const index = number - 1;
+                if (index < 0 || index >= lines.length) return code;
+                if (!lines[index].trim()) return code;
+                const prefix = isPython || isEnvFile || /\.(ya?ml|ini|cfg|conf|sh|txt)$/i.test(lowerFileName)
+                  ? "# "
+                  : "// ";
+                if (!lines[index].trim().startsWith(prefix.trim())) {
+                  lines[index] = lines[index].replace(/^(\s*)/, `$1${prefix}`);
+                }
+                return lines.join("\n");
+              };
+
+              let fixedCode = originalCode;
+
+              // IMPORTANT: every automatic fix changes ONLY the selected finding's file.
+              if (issueType === "api key") {
+                if (isEnvFile) {
+                  // Remove the secret line completely so the scanner cannot flag an empty assignment.
+                  fixedCode = removeVulnerableLine(originalCode, lineNumber);
+                } else {
+                  fixedCode = originalCode.replace(
+                    /^(\s*(?:export\s+)?(?:API[_-]?KEY|APIKEY)\s*[:=]\s*).*$/gim,
+                    '$1os.getenv("API_KEY")'
+                  );
+                  fixedCode = addPythonOsImport(fixedCode);
+                }
+              } else if (issueType === "password") {
+                if (isEnvFile) {
+                  // config.env/.env: delete the password line completely.
+                  fixedCode = removeVulnerableLine(originalCode, lineNumber);
+                } else {
+                  fixedCode = originalCode.replace(
+                    /^(\s*(?:export\s+)?(?:[A-Za-z0-9_]+_)?(?:PASSWORD|PASSWD|PWD)\s*[:=]\s*).*$/gim,
+                    '$1os.getenv("PASSWORD")'
+                  );
+                  fixedCode = addPythonOsImport(fixedCode);
+                }
+              } else if (issueType === "secret key") {
+                if (isEnvFile) {
+                  fixedCode = removeVulnerableLine(originalCode, lineNumber);
+                } else {
+                  fixedCode = originalCode.replace(
+                    /^(\s*(?:export\s+)?(?:SECRET[_-]?KEY|SECRETKEY)\s*[:=]\s*).*$/gim,
+                    '$1os.getenv("SECRET_KEY")'
+                  );
+                  fixedCode = addPythonOsImport(fixedCode);
+                }
+              } else if (issueType === "access token" || issueType === "token") {
+                if (isEnvFile) {
+                  fixedCode = removeVulnerableLine(originalCode, lineNumber);
+                } else {
+                  fixedCode = originalCode.replace(
+                    /^(\s*(?:export\s+)?(?:ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|ACCESSTOKEN|AUTHTOKEN)\s*[:=]\s*).*$/gim,
+                    '$1os.getenv("ACCESS_TOKEN")'
+                  );
+                  fixedCode = addPythonOsImport(fixedCode);
+                }
+              } else if (issueType === "potential sql injection") {
+                const lines = originalCode.split(/\r?\n/);
+                const index = lineNumber - 1;
+                if (index >= 0 && index < lines.length) {
+                  const vulnerableLine = lines[index];
+                  const match = vulnerableLine.match(
+                    /^(\s*)([A-Za-z_]\w*)\s*=\s*(["'])(.*?)\3\s*\+\s*([A-Za-z_]\w*)\s*$/
+                  );
+                  if (match) {
+                    const [, indentation, variable, quote, queryText, inputVariable] = match;
+                    lines[index] = `${indentation}${variable} = ${quote}${queryText} ?${quote}`;
+                    lines.splice(index + 1, 0, `${indentation}params = (${inputVariable},)`);
+                    fixedCode = lines.join("\n");
+                  } else {
+                    fixedCode = commentLine(originalCode, lineNumber);
+                  }
+                }
+              } else if (issueType === "unsafe eval") {
+                fixedCode = commentLine(originalCode, lineNumber);
+              } else if (issueType === "shell command execution") {
+                fixedCode = commentLine(originalCode, lineNumber);
+              } else if (issueType === "debug mode") {
+                fixedCode = originalCode.replace(/\b(debug|DEBUG)\s*=\s*True\b/g, "$1 = False");
+              } else if (issueType === "insecure cors") {
+                fixedCode = originalCode.replace(
+                  /allow_origins\s*=\s*\[\s*["']\*["']\s*\]/gi,
+                  'allow_origins = ["http://localhost:5173"]'
+                );
+              } else if (issueType === "insecure http") {
+                fixedCode = originalCode.replace(
+                  /http:\/\/(?!localhost\b|127\.0\.0\.1\b)/gi,
+                  "https://"
+                );
+              } else if (issueType === "private key") {
+                fixedCode = originalCode.replace(
+                  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----\s*/g,
+                  ""
+                );
+              } else if (issueType === "environment file exposure" || issueType === "credential file") {
+                fixedCode = "";
+              } else {
+                fixedCode = commentLine(originalCode, lineNumber);
+              }
+
+              if (fixedCode === originalCode) {
+                setFixMessage(`⚠️ Automatic fix could not change ${selectedFinding.type}. Please edit the code manually.`);
+                return;
+              }
+
+              const updatedFinding = { ...selectedFinding, code: fixedCode };
+              setSelectedFinding(updatedFinding);
+
+              // Keep other findings in the SAME FILE pointed at the latest file content.
+              // This preserves earlier fixes without removing or hiding any finding.
+              syncFindingsForFile(selectedFinding, fixedCode);
+
+              // Store ONLY this finding's edited file. Do not copy its code to other files.
+              const key = getFindingKey(selectedFinding);
+              if (key) {
+                const updatedSavedCode = { ...savedCode, [key]: fixedCode };
+                setSavedCode(updatedSavedCode);
+                localStorage.setItem("securedeploy_saved_code", JSON.stringify(updatedSavedCode));
+              }
+
+              const updatedFile = await updateZipWithFix(fixedCode, updatedFinding);
+              if (updatedFile) {
+                setFixMessage(
+                  `✅ ${selectedFinding.type} fixed successfully. Only ${selectedFinding.display_file || selectedFinding.file?.split(/[\\/]/).pop()} was changed. Now click Re-scan.`
+                );
+              }
+            }}
+          >
+            ✨ Fix Automatically
+          </button>
+
+          <button
+            className="save-fix-button"
+            onClick={async () => {
+              const codeToSave = selectedFinding.code || "";
+              const saved = await saveCurrentCode();
+              if (!saved) return;
+              const updatedFile = await updateZipWithFix(codeToSave, selectedFinding);
+              if (updatedFile) {
+                alert("✅ Fix saved permanently in the current project ZIP!");
+              }
+            }}
+          >
+            💾 Save Fix
+          </button>
+
+          <button
+            className="rescan-button"
+            onClick={async () => {
+              if (!file) {
+                alert("⚠️ ZIP file not found.");
+                return;
+              }
+              // Auto Fix already writes the latest content into updatedZipFile.
+              // Re-scan that ZIP directly instead of writing selectedFinding.code again.
+              const updatedFile = updatedZipFile || file;
+
+              if (!updatedFile) {
+                alert("⚠️ Updated project ZIP not found.");
+                return;
+              }
+
+              setCodeEditor(false);
+              setScanning(true);
+              setCurrentSlide(2);
+
+              try {
+                const formData = new FormData();
+                formData.append("file", updatedFile);
+                const response = await fetch("https://securedeploy-api.onrender.com/scan", {
+                  method: "POST",
+                  body: formData,
+                });
+                if (!response.ok) throw new Error("Re-scan request failed");
+                const data = await response.json();
+                if (data.status === "error") {
+                  alert("❌ Re-scan failed: " + data.message);
+                  setCurrentSlide(3);
+                  return;
+                }
+                setResult(data);
+                setSelectedFinding(null);
+                setFindingFilter("ALL");
+                setCurrentSlide(3);
+                alert(
+                  data.total_issues === 0
+                    ? "✅ Re-scan complete! No vulnerabilities found."
+                    : `⚠️ Re-scan complete! ${data.total_issues} issue(s) found.`
+                );
+              } catch (error) {
+                console.error(error);
+                setCurrentSlide(3);
+                alert("❌ Re-scan failed. Please try again.");
+              } finally {
+                setScanning(false);
+              }
+            }}
+          >
+            🔄 Re-scan
+          </button>
+        </div>
       </div>
-
     </div>
-
   </div>
 )}
               {/* AI RECOMMENDATIONS */}
@@ -1521,3 +1970,53 @@ const visibleFindings =
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

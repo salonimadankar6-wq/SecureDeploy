@@ -1592,7 +1592,7 @@ input:focus-visible {
 
 .code-textarea {
   width: 100%;
-  min-height: 480px;
+  min-height: 400px;
   resize: vertical;
   box-sizing: border-box;
   padding: 18px;

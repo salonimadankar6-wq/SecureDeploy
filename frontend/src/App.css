@@ -1353,3 +1353,54 @@ input:focus-visible {
   transform: translateY(-3px);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
+/* Remediation close button */
+.fix-details-header {
+  position: relative;
+}
+
+.close-fix {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #39456b;
+  border-radius: 8px;
+  background: #151b2e;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+}
+
+.close-fix:hover {
+  transform: scale(1.05);
+  background: #202943;
+}
+.fix-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.close-fix {
+  position: static !important;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-top: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #39456b;
+  border-radius: 8px;
+  background: #151b2e;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

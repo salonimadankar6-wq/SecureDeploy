@@ -1194,7 +1194,7 @@ const visibleFindings =
       <div className="fix-location">
         <strong>📍 Fix Location</strong>
         <p>
-          {selectedFinding.file}
+          {selectedFinding.file?.split(/[\\/]/).pop()}
           {selectedFinding.line
             ? ` → Line ${selectedFinding.line}`
             : ""}
